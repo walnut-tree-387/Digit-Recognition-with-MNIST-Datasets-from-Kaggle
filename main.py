@@ -5,6 +5,7 @@ import uuid
 import os
 from inference import preprocess_image, predict
 from model import load_model
+from db import insert_user_input
 
 # Load model
 W1, b1, W2, b2 = load_model("model.pkl")
@@ -34,9 +35,7 @@ if uploaded_file is not None:
         user_label = st.number_input("Enter the correct digit", min_value=0, max_value=9, step=1)
 
         if st.button("Submit Correct Label"):
-            image_array = np.array(image)
-            filename = f"{uuid.uuid4()}.npz"
-            np.savez_compressed(os.path.join(UPLOAD_FOLDER, filename), image=image_array, label=user_label)
+            insert_user_input(user_label, image)
             st.success("Thank you! Your label has been saved.")
 
     except Exception as e:
