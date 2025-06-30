@@ -1,24 +1,43 @@
-# main.py
-from fastapi import FastAPI, UploadFile, File
-import io
+import streamlit as st
+import numpy as np
+from PIL import Image
+import uuid
+import os
 from inference import preprocess_image, predict
 from model import load_model
 
-app = FastAPI()
-
-# Load the model once
+# Load model
 W1, b1, W2, b2 = load_model("model.pkl")
 
-@app.post("/predict")
-async def predict_digit(file: UploadFile = File(...)):
+# Folder to save user-labeled data
+UPLOAD_FOLDER = "user_data"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+st.title("Handwritten Digit Recognition")
+
+uploaded_file = st.file_uploader("Choose an image", type=["png", "jpg", "jpeg"])
+
+if uploaded_file is not None:
+    image = Image.open(uploaded_file).convert("L")
+    image = image.resize((28, 28)) 
+    st.image(image, caption="Uploaded Image", width=150)
+
     try:
-        contents = await file.read()
-        image_stream = io.BytesIO(contents)
-        X = preprocess_image(image_stream)
+        # Preprocess and predict
+        X = preprocess_image(uploaded_file)
         pred, probs = predict(X, W1, b1, W2, b2)
-        return {
-            "prediction": pred,
-            "probabilities": probs.ravel().tolist()
-        }
+
+        st.markdown(f"Model Prediction: `{pred}`")
+
+        # User feedback section
+        st.markdown("What digit do you think it is?")
+        user_label = st.number_input("Enter the correct digit", min_value=0, max_value=9, step=1)
+
+        if st.button("Submit Correct Label"):
+            image_array = np.array(image)
+            filename = f"{uuid.uuid4()}.npz"
+            np.savez_compressed(os.path.join(UPLOAD_FOLDER, filename), image=image_array, label=user_label)
+            st.success("Thank you! Your label has been saved.")
+
     except Exception as e:
-        return {"error": str(e)}
+        st.error(f"Error: {e}")
